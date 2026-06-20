@@ -1,0 +1,51 @@
+<?php
+
+namespace JeffersonGoncalves\HtmlSanitizer;
+
+use Symfony\Component\HtmlSanitizer\HtmlSanitizer as SymfonyHtmlSanitizer;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
+
+/**
+ * Sanitises rendered HTML that originated from untrusted sources — such as
+ * GitHub READMEs of third-party repos and the markdown body of imported
+ * articles. Both typically render with raw-HTML enabled (CommonMark
+ * `html_input: allow` / Str::markdown), so a crafted source could ship
+ * `<script>` or an inline event handler (`<img onerror=...>`); when a site's
+ * CSP keeps `'unsafe-inline'` for Alpine, such handlers would otherwise
+ * execute.
+ *
+ * Drops scripts, styles and every event-handler attribute while keeping the
+ * presentational subset a README/article needs (headings, lists, tables,
+ * code blocks, images, links). Your own post-processing (target/rel, lazy
+ * loading, table wrappers) should run AFTER this and re-add those safe
+ * attributes.
+ */
+class HtmlSanitizer
+{
+    public static function clean(string $html): string
+    {
+        return self::sanitizer()->sanitize($html);
+    }
+
+    private static function sanitizer(): SymfonyHtmlSanitizer
+    {
+        $config = (new HtmlSanitizerConfig)
+            ->allowSafeElements()
+            ->allowRelativeLinks()
+            ->allowRelativeMedias()
+            ->allowLinkSchemes(['https', 'http', 'mailto'])
+            ->allowMediaSchemes(['https', 'http', 'data'])
+            // Heading permalinks, code-language hints and table wrappers
+            // lean on class names for styling — keep them.
+            ->allowAttribute('class', '*')
+            ->allowAttribute('id', '*')
+            // Preserve author image sizing on screenshots. READMEs lay out image
+            // galleries with `<img width="20%">` to flow several per row; without
+            // these attributes every image falls back to max-width:100% and
+            // stacks one per line. Scoped to img (value is a dimension, no CSS).
+            ->allowAttribute('width', ['img'])
+            ->allowAttribute('height', ['img']);
+
+        return new SymfonyHtmlSanitizer($config);
+    }
+}
