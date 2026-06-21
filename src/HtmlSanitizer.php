@@ -19,6 +19,9 @@ use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
  * code blocks, images, links). Your own post-processing (target/rel, lazy
  * loading, table wrappers) should run AFTER this and re-add those safe
  * attributes.
+ *
+ * Behaviour is driven by the published `config/html-sanitizer.php` file
+ * (allowed schemes, allowed attributes, max input length).
  */
 class HtmlSanitizer
 {
@@ -31,21 +34,91 @@ class HtmlSanitizer
     {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
-            ->allowRelativeLinks()
-            ->allowRelativeMedias()
-            ->allowLinkSchemes(['https', 'http', 'mailto'])
-            ->allowMediaSchemes(['https', 'http', 'data'])
-            // Heading permalinks, code-language hints and table wrappers
-            // lean on class names for styling — keep them.
-            ->allowAttribute('class', '*')
-            ->allowAttribute('id', '*')
-            // Preserve author image sizing on screenshots. READMEs lay out image
-            // galleries with `<img width="20%">` to flow several per row; without
-            // these attributes every image falls back to max-width:100% and
-            // stacks one per line. Scoped to img (value is a dimension, no CSS).
-            ->allowAttribute('width', ['img'])
-            ->allowAttribute('height', ['img']);
+            ->allowLinkSchemes(self::schemes('link_schemes', ['https', 'http', 'mailto']))
+            ->allowMediaSchemes(self::schemes('media_schemes', ['https', 'http']))
+            // Symfony defaults this to 20000 bytes and silently truncates longer
+            // input mid-content; -1 disables the cap so long READMEs/articles
+            // survive intact.
+            ->withMaxInputLength(self::maxInputLength());
+
+        if (self::flag('allow_relative_links', true)) {
+            $config = $config->allowRelativeLinks();
+        }
+
+        if (self::flag('allow_relative_medias', true)) {
+            $config = $config->allowRelativeMedias();
+        }
+
+        foreach (self::attributes() as $name => $elements) {
+            $config = $config->allowAttribute($name, $elements);
+        }
 
         return new SymfonyHtmlSanitizer($config);
+    }
+
+    private static function maxInputLength(): int
+    {
+        $value = self::config('max_input_length', -1);
+
+        return is_numeric($value) ? (int) $value : -1;
+    }
+
+    private static function flag(string $key, bool $default): bool
+    {
+        $value = self::config($key, $default);
+
+        return is_bool($value) ? $value : $default;
+    }
+
+    /**
+     * @param  array<int, string>  $default
+     * @return array<int, string>
+     */
+    private static function schemes(string $key, array $default): array
+    {
+        $value = self::config($key, $default);
+
+        if (! is_array($value)) {
+            return $default;
+        }
+
+        return array_values(array_map('strval', $value));
+    }
+
+    /**
+     * @return array<string, string|array<int, string>>
+     */
+    private static function attributes(): array
+    {
+        $value = self::config('attributes', []);
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $attributes = [];
+
+        foreach ($value as $name => $elements) {
+            if (! is_string($name)) {
+                continue;
+            }
+
+            if (is_string($elements)) {
+                $attributes[$name] = $elements;
+            } elseif (is_array($elements)) {
+                $attributes[$name] = array_values(array_map('strval', $elements));
+            }
+        }
+
+        return $attributes;
+    }
+
+    private static function config(string $key, mixed $default): mixed
+    {
+        if (! function_exists('config')) {
+            return $default;
+        }
+
+        return config('html-sanitizer.'.$key, $default);
     }
 }

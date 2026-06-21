@@ -9,6 +9,8 @@ class HtmlSanitizerServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
     {
-        $package->name('laravel-html-sanitizer');
+        $package
+            ->name('laravel-html-sanitizer')
+            ->hasConfigFile();
     }
 }

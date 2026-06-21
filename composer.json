@@ -4,7 +4,11 @@
     "keywords": [
         "jeffersongoncalves",
         "laravel",
-        "laravel-html-sanitizer"
+        "laravel-html-sanitizer",
+        "security",
+        "xss",
+        "html",
+        "sanitizer"
     ],
     "homepage": "https://github.com/jeffersongoncalves/laravel-html-sanitizer",
     "license": "MIT",
