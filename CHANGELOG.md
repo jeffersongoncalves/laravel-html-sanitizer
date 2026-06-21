@@ -2,6 +2,10 @@
 
 All notable changes to `laravel-html-sanitizer` will be documented in this file.
 
+## v1.2.0 - 2026-06-21
+
+**Full Changelog**: https://github.com/jeffersongoncalves/laravel-html-sanitizer/compare/v1.1.1...v1.2.0
+
 ## v1.1.1 - 2026-06-20
 
 chore: ignore the .phpunit.cache directory.
