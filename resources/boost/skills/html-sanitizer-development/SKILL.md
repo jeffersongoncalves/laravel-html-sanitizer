@@ -18,7 +18,7 @@ description: Development guide for laravel-html-sanitizer, a thin wrapper around
 - PHP 8.2+
 - Laravel 11, 12, or 13
 - `spatie/laravel-package-tools` ^1.14
-- `symfony/html-sanitizer` ^7.0
+- `symfony/html-sanitizer` ^7.0|^8.0
 
 ### Installation
 
@@ -26,14 +26,21 @@ description: Development guide for laravel-html-sanitizer, a thin wrapper around
 composer require jeffersongoncalves/laravel-html-sanitizer
 ```
 
-There is no config file and nothing to publish.
+The package ships a config file with safe defaults. Publish it only when you
+need to adjust the allowlist:
+
+```bash
+php artisan vendor:publish --tag="html-sanitizer-config"
+```
 
 ## Package Structure
 
 ```
+config/
+  html-sanitizer.php                 # Allowed schemes/attributes, relative-link flags, max input length
 src/
-  HtmlSanitizerServiceProvider.php   # Spatie PackageServiceProvider, only sets the package name
-  HtmlSanitizer.php                  # Static clean() API + private sanitizer() factory
+  HtmlSanitizerServiceProvider.php   # Spatie PackageServiceProvider; registers the config file
+  HtmlSanitizer.php                  # Static clean() API + memoised sanitizer() factory (config-driven)
 ```
 
 ## Features
@@ -46,20 +53,21 @@ use JeffersonGoncalves\HtmlSanitizer\HtmlSanitizer;
 $clean = HtmlSanitizer::clean($untrustedHtml);
 ```
 
-`clean()` builds a fresh `Symfony\Component\HtmlSanitizer\HtmlSanitizer` from a `HtmlSanitizerConfig` each call and runs `->sanitize()` on the input.
+`clean()` builds a `Symfony\Component\HtmlSanitizer\HtmlSanitizer` from a `HtmlSanitizerConfig` and runs `->sanitize()` on the input. The built sanitizer is memoised per config signature, so repeated calls reuse it; it rebuilds automatically when any config value changes (call `HtmlSanitizer::flush()` to force a rebuild).
 
 ### The allowlist
 
-The config in `HtmlSanitizer::sanitizer()`:
+`HtmlSanitizer::sanitizer()` builds the config entirely from `config/html-sanitizer.php`. With the default config that is equivalent to:
 
 ```php
 (new HtmlSanitizerConfig)
     ->allowSafeElements()
-    ->allowRelativeLinks()
-    ->allowRelativeMedias()
-    ->allowLinkSchemes(['https', 'http', 'mailto'])
-    ->allowMediaSchemes(['https', 'http', 'data'])
-    ->allowAttribute('class', '*')
+    ->allowRelativeLinks()       // config: allow_relative_links (default true)
+    ->allowRelativeMedias()      // config: allow_relative_medias (default true)
+    ->allowLinkSchemes(['https', 'http', 'mailto'])   // config: link_schemes
+    ->allowMediaSchemes(['https', 'http'])            // config: media_schemes — NO 'data'
+    ->withMaxInputLength(2_000_000)                   // config: max_input_length (~2 MB cap)
+    ->allowAttribute('class', '*')                    // config: attributes
     ->allowAttribute('id', '*')
     ->allowAttribute('width', ['img'])
     ->allowAttribute('height', ['img']);
@@ -68,6 +76,8 @@ The config in `HtmlSanitizer::sanitizer()`:
 - `allowSafeElements()` enables the curated presentational set (headings, lists, tables, code blocks, images, links, ...).
 - `class`/`id` are kept on every element so heading permalinks, code-language hints and table wrappers keep their styling hooks.
 - `width`/`height` are scoped to `<img>` (dimension values, not arbitrary CSS) so README image galleries flow correctly.
+- `data` is **deliberately excluded** from media schemes: a `data:image/svg+xml` URI can carry executable script. Only add it if you fully trust the source.
+- `max_input_length` defaults to ~2 MB to bound work on a hostile payload; set `-1` to disable the cap.
 - Everything not allowed — `<script>`, `<style>`, event-handler attributes (`onerror`, `onclick`), Alpine `x-*` attributes, unsafe schemes — is removed.
 
 ## Why this exists
@@ -131,14 +141,19 @@ vendor/bin/pint
 
 ## Widening the allowlist
 
-To allow an additional attribute or scheme, edit `HtmlSanitizer::sanitizer()`:
+The allowlist is config-driven — publish the config and edit `config/html-sanitizer.php` rather than the source:
 
 ```php
 // Allow an attribute on specific elements only (preferred — keep it scoped)
-->allowAttribute('data-foo', ['div', 'span'])
+'attributes' => [
+    // ...defaults...
+    'data-foo' => ['div', 'span'],
+],
 
 // Allow an additional link scheme
-->allowLinkSchemes(['https', 'http', 'mailto', 'tel'])
+'link_schemes' => ['https', 'http', 'mailto', 'tel'],
 ```
 
-Keep additions narrow and document the reason inline — this class is the sole XSS control on the routes that use it. Add a test covering both the newly-kept case and a related case that must still be stripped.
+**Never** add `data` to `media_schemes` unless you fully trust the source — `data:image/svg+xml` URIs can execute script.
+
+Keep additions narrow — this class is the sole XSS control on the routes that use it. Add a test covering both the newly-kept case and a related case that must still be stripped.

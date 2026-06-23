@@ -25,31 +25,98 @@ use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
  */
 class HtmlSanitizer
 {
+    /**
+     * Generous default cap (~2 MB) for input length. Large enough for any real
+     * README/article, small enough to bound work on a hostile payload. The
+     * published config can override this (use -1 for unlimited).
+     */
+    private const DEFAULT_MAX_INPUT_LENGTH = 2_000_000;
+
+    /**
+     * Built sanitizers keyed by a hash of the config that produced them.
+     * Building a HtmlSanitizerConfig (allowlist, schemes, attributes) on every
+     * clean() call is wasteful; reuse the instance while the config is stable,
+     * and rebuild automatically when any relevant config value changes (e.g.
+     * in tests that override a scheme between calls).
+     *
+     * @var array<string, SymfonyHtmlSanitizer>
+     */
+    private static array $sanitizers = [];
+
     public static function clean(string $html): string
     {
         return self::sanitizer()->sanitize($html);
     }
 
+    /**
+     * Clear the memoised sanitizers. Mainly useful in tests, or after a
+     * runtime config change that should take effect immediately.
+     */
+    public static function flush(): void
+    {
+        self::$sanitizers = [];
+    }
+
     private static function sanitizer(): SymfonyHtmlSanitizer
     {
+        $linkSchemes = self::schemes('link_schemes', ['https', 'http', 'mailto']);
+        $mediaSchemes = self::schemes('media_schemes', ['https', 'http']);
+        $maxInputLength = self::maxInputLength();
+        $allowRelativeLinks = self::flag('allow_relative_links', true);
+        $allowRelativeMedias = self::flag('allow_relative_medias', true);
+        $attributes = self::attributes();
+
+        $signature = md5(serialize([
+            $linkSchemes,
+            $mediaSchemes,
+            $maxInputLength,
+            $allowRelativeLinks,
+            $allowRelativeMedias,
+            $attributes,
+        ]));
+
+        return self::$sanitizers[$signature] ??= self::build(
+            $linkSchemes,
+            $mediaSchemes,
+            $maxInputLength,
+            $allowRelativeLinks,
+            $allowRelativeMedias,
+            $attributes,
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $linkSchemes
+     * @param  array<int, string>  $mediaSchemes
+     * @param  array<string, string|array<int, string>>  $attributes
+     */
+    private static function build(
+        array $linkSchemes,
+        array $mediaSchemes,
+        int $maxInputLength,
+        bool $allowRelativeLinks,
+        bool $allowRelativeMedias,
+        array $attributes,
+    ): SymfonyHtmlSanitizer {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
-            ->allowLinkSchemes(self::schemes('link_schemes', ['https', 'http', 'mailto']))
-            ->allowMediaSchemes(self::schemes('media_schemes', ['https', 'http']))
+            ->allowLinkSchemes($linkSchemes)
+            ->allowMediaSchemes($mediaSchemes)
             // Symfony defaults this to 20000 bytes and silently truncates longer
-            // input mid-content; -1 disables the cap so long READMEs/articles
-            // survive intact.
-            ->withMaxInputLength(self::maxInputLength());
+            // input mid-content. We raise it to a generous default so real
+            // READMEs/articles survive, while still bounding memory/CPU on a
+            // hostile multi-megabyte payload (set -1 to disable entirely).
+            ->withMaxInputLength($maxInputLength);
 
-        if (self::flag('allow_relative_links', true)) {
+        if ($allowRelativeLinks) {
             $config = $config->allowRelativeLinks();
         }
 
-        if (self::flag('allow_relative_medias', true)) {
+        if ($allowRelativeMedias) {
             $config = $config->allowRelativeMedias();
         }
 
-        foreach (self::attributes() as $name => $elements) {
+        foreach ($attributes as $name => $elements) {
             $config = $config->allowAttribute($name, $elements);
         }
 
@@ -58,9 +125,9 @@ class HtmlSanitizer
 
     private static function maxInputLength(): int
     {
-        $value = self::config('max_input_length', -1);
+        $value = self::config('max_input_length', self::DEFAULT_MAX_INPUT_LENGTH);
 
-        return is_numeric($value) ? (int) $value : -1;
+        return is_numeric($value) ? (int) $value : self::DEFAULT_MAX_INPUT_LENGTH;
     }
 
     private static function flag(string $key, bool $default): bool

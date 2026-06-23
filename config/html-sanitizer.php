@@ -8,12 +8,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | Symfony's HtmlSanitizer truncates input to 20000 bytes by default, which
-    | silently cuts long READMEs/articles mid-content. Use -1 for unlimited
-    | (recommended for trusted-length but untrusted-content sources), or set a
-    | positive byte count to cap input length.
+    | silently cuts long READMEs/articles mid-content. We default to ~2 MB: big
+    | enough for any real document, while still bounding memory/CPU on a hostile
+    | multi-megabyte payload. Raise it if you genuinely handle larger content,
+    | or set -1 to disable the cap entirely (not recommended for untrusted input).
     |
     */
-    'max_input_length' => -1,
+    'max_input_length' => 2_000_000,
 
     /*
     |--------------------------------------------------------------------------
