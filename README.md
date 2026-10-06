@@ -1,6 +1,6 @@
 <div class="filament-hidden">
 
-![Laravel HTML Sanitizer](https://raw.githubusercontent.com/jeffersongoncalves/laravel-html-sanitizer/master/art/jeffersongoncalves-laravel-html-sanitizer.png)
+![Laravel HTML Sanitizer](https://raw.githubusercontent.com/jeffersongoncalves/laravel-html-sanitizer/main/art/jeffersongoncalves-laravel-html-sanitizer.png)
 
 </div>
 
@@ -9,8 +9,8 @@
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jeffersongoncalves)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/jeffersongoncalves/laravel-html-sanitizer.svg?style=flat-square)](https://packagist.org/packages/jeffersongoncalves/laravel-html-sanitizer)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/jeffersongoncalves/laravel-html-sanitizer/tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/jeffersongoncalves/laravel-html-sanitizer/actions?query=workflow%3Arun-tests+branch%3Amaster)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/jeffersongoncalves/laravel-html-sanitizer/fix-php-code-style-issues.yml?branch=master&label=code%20style&style=flat-square)](https://github.com/jeffersongoncalves/laravel-html-sanitizer/actions?query=workflow%3A"Fix+PHP+code+styling"+branch%3Amaster)
+[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/jeffersongoncalves/laravel-html-sanitizer/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/jeffersongoncalves/laravel-html-sanitizer/actions?query=workflow%3Arun-tests+branch%3Amain)
+[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/jeffersongoncalves/laravel-html-sanitizer/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/jeffersongoncalves/laravel-html-sanitizer/actions?query=workflow%3A"Fix+PHP+code+styling"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/jeffersongoncalves/laravel-html-sanitizer.svg?style=flat-square)](https://packagist.org/packages/jeffersongoncalves/laravel-html-sanitizer)
 
 This Laravel package provides a simple wrapper around the Symfony HTML Sanitizer to safely clean untrusted HTML. It strips scripts, inline event handlers, and Alpine attributes while keeping the presentational subset (headings, lists, tables, code blocks, images, links) that rendered Markdown and READMEs need. The package is easy to install and configure, seamlessly integrating with your existing Laravel application.
